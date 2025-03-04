@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <!-- 引入 axios CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <!-- 引入 Vue 2 CDN -->
+  <script src="./vue.js"></script>
+  <!-- 引入 Element UI 样式 -->
+  <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+  <!-- 引入 Element UI 组件库 -->
+  <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+</head>
+
+<body>
+  <div id="app">
+    <!-- 添加 @keyup.enter.native 事件 -->
+    <el-input v-model="inputText" placeholder="请输入问题" style="width: 300px;" @keyup.enter.native="sendQuestion"></el-input>
+    <el-button @click="sendQuestion">发送</el-button>
+    <el-card style="margin-top: 20px;">
+      <template #header>
+        <span>消息回复</span>
+      </template>
+      <!-- 显示当前正在拼接的消息 -->
+      <div v-if="currentMessage" style="margin-bottom: 10px; white-space: pre-line;">
+        {{ currentMessage }}
+      </div>
+      <!-- 显示完整拼接后的消息 -->
+      <div v-for="(message, index) in fullMessages" :key="index" style="margin-bottom: 10px; white-space: pre-line;">
+        {{ message }}
+      </div>
+    </el-card>
+  </div>
+</body>
+<script>
+  const vm = new Vue({
+    el: '#app',
+    data: {
+      inputText: '',
+      // 用于存储当前正在拼接的消息
+      currentMessage: '',
+      // 用于存储完整拼接后的消息
+      fullMessages: []
+    },
+    methods: {
+      sendQuestion() {
+        if (this.inputText) {
+          this.socket.send(this.inputText);
+          this.inputText = '';
+          // 发送新问题时清空当前消息
+          this.currentMessage = '';
+        }
+      }
+    },
+    mounted() {
+      this.socket = new WebSocket('ws://localhost:3001');
+
+      this.socket.onopen = () => {
+        console.log('Connected to WebSocket server');
+      };
+
+      this.socket.onmessage = (event) => {
+        const message = event.data;
+        // 使用正则表达式匹配 <think> 标签及其包裹的内容，并替换为 "思考过程"
+        const processedMessage = message.replace(/<think>.*?<\/think>/g, '思考过程');
+        // 拼接处理后的消息片段
+        this.currentMessage += processedMessage;
+        // 假设每次回答结束后服务端会发送一个空字符串
+        if (message === '') {
+          this.fullMessages.push(this.currentMessage);
+          // 消息接收完后清空当前消息
+          this.currentMessage = '';
+        }
+      };
+
+      this.socket.onclose = () => {
+        console.log('Disconnected from WebSocket server');
+      };
+    }
+  });
+</script>
+
+</html>
