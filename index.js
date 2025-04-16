@@ -2,6 +2,8 @@ const express = require('express');
 const { Ollama } = require("@langchain/community/llms/ollama");
 const cors = require('cors');
 const WebSocket = require('ws');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const httpPort = 3000;
@@ -23,8 +25,15 @@ const model = new Ollama({
 app.post('/ask', async (req, res) => {
   try {
     const { question } = req.body;
+    // 读取本地文本文件
+    const filePath = path.join(__dirname, 'local_data.txt');
+    const fileContent = fs.readFileSync(filePath, 'utf8');
+
+    // 将文件内容和问题合并
+    const fullInput = `${fileContent}\n${question}`;
+
     // 调用 Ollama 模型进行推理
-    const response = await model.call(question);
+    const response = await model.call(fullInput);
     res.json({ answer: response });
   } catch (error) {
     console.error('Error:', error);
@@ -43,18 +52,36 @@ const wss = new WebSocket.Server({ port: wsPort });
 // 处理 WebSocket 连接
 wss.on('connection', (ws) => {
   console.log('Client connected');
+  // 为每个客户端维护一个对话历史
+  const conversationHistory = [];
 
   // 处理客户端发送的消息
   ws.on('message', async (message) => {
     try {
       console.log('message===>', message);
       const question = message.toString();
-      const stream = await model.stream(question);
+      // 读取本地文本文件
+      const filePath = path.join(__dirname, './public/local_data.txt');
+      const fileContent = fs.readFileSync(filePath, 'utf8');
+      console.log('fileContent', fileContent);
+      
+
+      // 将当前问题添加到对话历史
+      conversationHistory.push({ role: 'user', content: question });
+      // 构建包含历史对话的完整输入，并加入本地文件内容
+      const fullInput = [fileContent, ...conversationHistory.map(item => `${item.role}: ${item.content}`)].join('\n');
+
+      const stream = await model.stream(fullInput);
+
+      let answer = '';
       for await (const str of stream) {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(str);
         }
+        answer += str;
       }
+      // 将回答添加到对话历史
+      conversationHistory.push({ role: 'assistant', content: answer });
     } catch (error) {
       console.error('Error:', error);
       if (ws.readyState === WebSocket.OPEN) {

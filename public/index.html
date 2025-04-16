@@ -25,12 +25,10 @@
         <span>消息回复</span>
       </template>
       <!-- 显示当前正在拼接的消息 -->
-      <div v-if="currentMessage" style="margin-bottom: 10px; white-space: pre-line;">
-        {{ currentMessage }}
+      <div v-if="currentMessage" style="margin-bottom: 10px; white-space: pre-line;" v-html="currentMessage">
       </div>
       <!-- 显示完整拼接后的消息 -->
-      <div v-for="(message, index) in fullMessages" :key="index" style="margin-bottom: 10px; white-space: pre-line;">
-        {{ message }}
+      <div v-for="(message, index) in fullMessages" :key="index" style="margin-bottom: 10px; white-space: pre-line;" v-html="message">
       </div>
     </el-card>
   </div>
